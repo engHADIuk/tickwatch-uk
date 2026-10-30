@@ -13,7 +13,7 @@ front end (or a vet / pet owner) can see where tick activity is rising across th
 ## 1. Run it (macOS / Linux)
 
 ```bash
-git clone <this-repo-url> && cd tick-tracker-backend
+git clone https://github.com/engHADIuk/tick-tracker-backend.git && cd tick-tracker-backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
