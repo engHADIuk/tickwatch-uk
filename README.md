@@ -13,8 +13,8 @@ TickWatch UK is a web app that turns open tick-sighting data into something peop
 ## 1. Run it (macOS / Linux)
 
 ```bash
-git clone https://github.com/engHADIuk/tick-tracker-backend.git
-cd tick-tracker-backend
+git clone https://github.com/engHADIuk/tickwatch-uk.git
+cd tickwatch-uk
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
