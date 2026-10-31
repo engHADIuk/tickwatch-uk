@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     api_base_url: str = "https://dev-task.elancoapps.com/data"
     db_path: str = "data/ticks.db"
     snapshot_path: str = "data/snapshot.json"  # last good copy of the upstream payload
+    uploads_dir: str = "data/uploads"
+    max_upload_mb: int = 5
+    reports_per_minute: int = 5  # rate limit for POST /sightings, per client
     http_timeout_s: float = 20.0
     max_retries: int = 5
     backoff_base_s: float = 0.5

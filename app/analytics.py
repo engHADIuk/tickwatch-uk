@@ -70,7 +70,14 @@ def _week_range(a: str, b: str) -> list[tuple[str, str]]:
 
 def trends(conn: sqlite3.Connection, interval: str, fill_gaps: bool = True, **filters) -> dict[str, Any]:
     where, args = build_where(**filters)
-    if interval == "month":
+    if interval == "year":
+        rows = conn.execute(f"SELECT CAST(year AS TEXT) AS b, MIN(date) AS s, COUNT(*) AS n FROM sightings{where} GROUP BY year ORDER BY year", args).fetchall()
+        counts = {r["b"]: r["n"] for r in rows}
+        if rows and fill_gaps:
+            buckets = [(str(y), f"{y}-01-01") for y in range(int(rows[0]["b"]), int(rows[-1]["b"]) + 1)]
+        else:
+            buckets = [(r["b"], f"{r['b']}-01-01") for r in rows]
+    elif interval == "month":
         rows = conn.execute(f"SELECT month AS b, MIN(date) AS s, COUNT(*) AS n FROM sightings{where} GROUP BY month ORDER BY month", args).fetchall()
         counts = {r["b"]: r["n"] for r in rows}
         buckets = [(m, f"{m}-01") for m in _month_range(rows[0]["b"], rows[-1]["b"])] if rows and fill_gaps else [(r["b"], f"{r['b']}-01") for r in rows]
@@ -220,12 +227,13 @@ def data_quality(conn: sqlite3.Connection) -> dict[str, Any]:
         for fl in r["f"].split(","):
             flags[fl] += r["n"]
     q = {r["reason"]: r["n"] for r in conn.execute("SELECT reason, COUNT(*) n FROM quarantine GROUP BY reason")}
+    user_reports = conn.execute("SELECT COUNT(*) FROM sightings WHERE source = 'user'").fetchone()[0]
     conflicts = [dict(r) for r in conn.execute(
         "SELECT latin_name, GROUP_CONCAT(DISTINCT species) species_names, COUNT(DISTINCT species) k FROM sightings "
         "WHERE latin_name IS NOT NULL AND species IS NOT NULL GROUP BY latin_name HAVING k > 1")]
     rng = conn.execute("SELECT MIN(date), MAX(date) FROM sightings").fetchone()
     return {
-        "stored_sightings": total, "date_range": {"from": rng[0], "to": rng[1]},
+        "stored_sightings": total, "community_reports": user_reports, "date_range": {"from": rng[0], "to": rng[1]},
         "records_with_flags": dict(flags),
         "quarantined_all_time": q,
         "latin_name_with_multiple_species": conflicts,
@@ -236,3 +244,43 @@ def data_quality(conn: sqlite3.Connection) -> dict[str, Any]:
             "flag_counts": json.loads(last["flag_counts"] or "{}"),
         },
     }
+
+
+def map_markers(conn: sqlite3.Connection, recent_days: int = 90, **filters) -> dict[str, Any]:
+    """One marker per city for the interactive map, with counts, recent activity and risk level."""
+    from datetime import date as _d
+    from .geo import coords_for
+
+    where, args = build_where(**filters)
+    latest = conn.execute("SELECT MAX(date) FROM sightings").fetchone()[0]
+    if not latest:
+        return {"as_of": None, "recent_days": recent_days, "total_sightings": 0, "markers": []}
+    ref = _d.fromisoformat(latest)
+    recent_from = (ref - timedelta(days=recent_days)).isoformat()
+    rows = conn.execute(
+        f"""SELECT location, MIN(region) AS region, COUNT(*) AS n, MAX(date) AS last_seen,
+                   SUM(CASE WHEN date > ? THEN 1 ELSE 0 END) AS recent
+            FROM sightings{where} GROUP BY location ORDER BY n DESC""", [recent_from, *args]).fetchall()
+    top: dict[str, str] = {}
+    for r in conn.execute(f"SELECT location, COALESCE(species,'Unidentified') sp, COUNT(*) n FROM sightings{where} GROUP BY location, sp ORDER BY n DESC", args):
+        top.setdefault(r["location"], r["sp"])
+    risk = {c["city"]: c for c in risk_scores(conn, as_of=None, window_days=recent_days)["cities"]}
+    markers = []
+    for r in rows:
+        xy = coords_for(r["location"])
+        if not xy:
+            continue
+        k = risk.get(r["location"], {})
+        markers.append({"city": r["location"], "region": r["region"], "lat": xy[0], "lng": xy[1],
+                        "sightings": r["n"], "recent_sightings": r["recent"], "last_sighting": r["last_seen"],
+                        "top_species": top.get(r["location"]), "risk_score": k.get("risk_score"),
+                        "risk_level": k.get("risk_level", "low"), "explanation": k.get("explanation")})
+    return {"as_of": latest, "recent_days": recent_days, "total_sightings": sum(m["sightings"] for m in markers),
+            "markers": markers}
+
+
+def species_latin_map(conn: sqlite3.Connection) -> dict[str, str | None]:
+    out: dict[str, str | None] = {}
+    for r in conn.execute("SELECT species, latin_name, COUNT(*) n FROM sightings WHERE species IS NOT NULL AND species != 'Unidentified' GROUP BY species, latin_name ORDER BY n DESC"):
+        out.setdefault(r["species"], r["latin_name"])
+    return out

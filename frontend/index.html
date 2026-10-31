@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TickWatch UK | Community tick sightings map</title>
+  <meta name="description" content="Explore tick sightings across the UK, learn to identify ticks, and report your own sighting.">
+  <meta name="theme-color" content="#14513f">
+  <script>try{var t=localStorage.getItem("tw-theme");if(t==="forest"||t==="midnight"||t==="heather")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%2314513f'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23fff'/%3E%3Ccircle cx='16' cy='10' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="preload" href="/vendor/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/vendor/fonts/fraunces-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="topbar">
+    <a class="brand" href="#/home" aria-label="TickWatch UK, home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="18.5" r="7"/><circle cx="16" cy="9.5" r="3.2"/><path d="M8 14 3.5 11M8 19.5 3 20M9.5 24.5 6 28M24 14l4.500-3M24 19.500l5 .5M22.500 24.500 26 28"/></svg></span>
+      <span class="brand-text"><strong>TickWatch</strong><span>UK</span></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/home" data-nav="home"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg><span>Home</span></a>
+      <a href="#/map" data-nav="map"><svg class="i" aria-hidden="true"><use href="#i-map"/></svg><span>Map</span></a>
+      <a href="#/insights" data-nav="insights"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg><span>Insights</span></a>
+      <a href="#/learn" data-nav="learn"><svg class="i" aria-hidden="true"><use href="#i-book"/></svg><span>Learn</span></a>
+    </nav>
+    <div class="topbar-right">
+      <div class="themes" role="group" aria-label="Colour theme">
+        <button type="button" class="swatch" data-theme-btn="forest" style="--sa:#14513f;--sb:#e8a317" aria-pressed="true" aria-label="Forest theme" title="Forest"></button>
+        <button type="button" class="swatch" data-theme-btn="midnight" style="--sa:#0b2a22;--sb:#3ddc97" aria-pressed="false" aria-label="Midnight theme (dark)" title="Midnight"></button>
+        <button type="button" class="swatch" data-theme-btn="heather" style="--sa:#4b3a9a;--sb:#ff6b57" aria-pressed="false" aria-label="Heather theme" title="Heather"></button>
+      </div>
+      <span id="status-pill" class="pill pill-muted" role="status" aria-live="polite"><span class="dot"></span><span id="status-text">Connecting…</span></span>
+      <a class="btn btn-primary btn-sm" href="#/report" data-nav="report"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span>Report a sighting</span></a>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section id="view-home" class="view home" aria-labelledby="h-home" hidden>
+      <div id="home-body"></div>
+    </section>
+
+    <section id="view-map" class="view view-map" aria-labelledby="h-map" hidden>
+      <aside class="sidebar" aria-label="Filters and summary">
+        <div class="sidebar-head">
+          <h1 id="h-map" tabindex="-1">Explore sightings</h1>
+          <p class="muted">Open tick-sighting data across UK cities. Bubbles show where ticks have been recorded.</p>
+        </div>
+        <dl class="kpis" id="map-kpis" aria-live="polite">
+          <div><dt>Sightings</dt><dd id="kpi-total">–</dd></div>
+          <div><dt>Cities</dt><dd id="kpi-cities">–</dd></div>
+          <div><dt id="kpi-recent-label">Final 90 days of data</dt><dd id="kpi-recent">–</dd></div>
+          <div><dt>Latest</dt><dd id="kpi-latest">–</dd></div>
+        </dl>
+        <form id="filters" class="filters" aria-label="Filter sightings" autocomplete="off">
+          <div class="chips" role="group" aria-label="Quick date ranges">
+            <button type="button" class="chip" data-range="all" aria-pressed="true">All time</button>
+            <button type="button" class="chip" data-range="365" aria-pressed="false">Last year</button>
+            <button type="button" class="chip" data-range="90" aria-pressed="false">Last 90 days</button>
+          </div>
+          <div class="field-row">
+            <label class="field"><span>From</span><input type="date" id="f-start" name="start_date"></label>
+            <label class="field"><span>To</span><input type="date" id="f-end" name="end_date"></label>
+          </div>
+          <label class="field"><span>Species</span>
+            <select id="f-species" name="species"><option value="">All species</option></select></label>
+          <label class="field"><span>Region</span>
+            <select id="f-region" name="region"><option value="">All regions</option></select></label>
+          <button type="button" id="f-reset" class="btn btn-ghost btn-sm">Reset filters</button>
+        </form>
+        <div class="export"><span>Need the data for a report or research?</span><a id="csv-link" class="btn btn-secondary btn-sm" href="/sightings/export" download="tickwatch-sightings.csv"><svg class="i" aria-hidden="true"><use href="#i-upload" style="transform:rotate(180deg);transform-origin:center"/></svg>CSV</a></div>
+        <div class="legend" aria-label="Map key">
+          <h2>Map key</h2>
+          <ul>
+            <li><span class="key key-high"></span><span><strong>Most sightings</strong> (top third of cities)</span></li>
+            <li><span class="key key-medium"></span><span><strong>Moderate</strong> (middle third)</span></li>
+            <li><span class="key key-low"></span><span><strong>Fewer sightings</strong> (bottom third)</span></li>
+          </ul>
+          <p class="small muted">Colour compares the cities currently in view. Bubble size and number show sightings. Locations are city-level approximations.</p>
+        </div>
+      </aside>
+
+      <div class="map-wrap">
+        <div class="map-toolbar" role="group" aria-label="Display">
+          <button class="seg is-active" id="seg-map" type="button" aria-pressed="true"><svg class="i" aria-hidden="true"><use href="#i-map"/></svg> Map</button>
+          <button class="seg" id="seg-list" type="button" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg> List</button>
+        </div>
+        <div id="map" role="application" aria-label="Map of tick sightings across the UK. Each bubble is a city; press Enter on a bubble to see details."></div>
+        <div id="list-view" class="list-view" hidden>
+          <table class="table">
+            <caption class="sr-only">Sightings by city</caption>
+            <thead><tr><th scope="col">City</th><th scope="col">Region</th><th scope="col" class="num">Sightings</th><th scope="col" class="num">Recent</th><th scope="col">Activity</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+            <tbody id="list-body"></tbody>
+          </table>
+        </div>
+        <div id="map-empty" class="map-empty" hidden>
+          <div class="card"><h2>No sightings match these filters</h2><p class="muted">Try a wider date range or a different species.</p><button class="btn btn-secondary" type="button" id="empty-reset">Reset filters</button></div>
+        </div>
+        <div id="map-error" class="map-empty" hidden>
+          <div class="card"><h2>Could not load the map data</h2><p class="muted" id="map-error-msg">Please check your connection.</p><button class="btn btn-primary" type="button" id="map-retry">Try again</button></div>
+        </div>
+        <div id="map-loading" class="map-loading" aria-hidden="true"><span class="spinner"></span></div>
+
+        <aside id="detail" class="detail" role="complementary" aria-labelledby="detail-title" hidden>
+          <div class="detail-scroll">
+            <button type="button" class="icon-btn detail-close" id="detail-close" aria-label="Close details"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
+            <div id="detail-body"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-insights" class="view page" aria-labelledby="h-insights" hidden>
+      <div class="page-head">
+        <p class="eyebrow">Data insights</p>
+        <h1 id="h-insights" tabindex="-1">What the sightings tell us</h1>
+        <p class="lead">Aggregated from every cleaned sighting: where ticks are reported, how activity changes over time, and which cities need the most attention.</p>
+      </div>
+      <div id="insights-body"></div>
+    </section>
+
+    <section id="view-learn" class="view page" aria-labelledby="h-learn" hidden>
+      <div class="page-head">
+        <p class="eyebrow">Learn</p>
+        <h1 id="h-learn" tabindex="-1">Know your ticks</h1>
+        <p class="lead">How to recognise common ticks, when they are most active near you, and how to protect yourself and your pets.</p>
+      </div>
+      <div id="learn-body"></div>
+    </section>
+
+    <section id="view-report" class="view page" aria-labelledby="h-report" hidden>
+      <div class="page-head">
+        <p class="eyebrow">Community</p>
+        <h1 id="h-report" tabindex="-1">Report a tick sighting</h1>
+        <p class="lead">Found a tick on yourself, a pet, or outdoors? Your report helps other people and vets see where ticks are active.</p>
+      </div>
+      <div id="report-body"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="links"><a href="#/home">Home</a><a href="#/map">Map</a><a href="#/insights">Insights</a><a href="#/learn">Learn</a><a href="#/report">Report</a><a href="/docs">API documentation</a></div>
+    <p>TickWatch UK is a demonstration project built on open sample data for the Elanco technical task. It is not an official service and does not give medical or veterinary advice. Map tiles &copy; OpenStreetMap contributors &copy; CARTO.</p>
+  </footer>
+
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6.500v13L9 17l6 2.500 6-2.500v-13L15 6.500 9 4Zm0 0v13m6-10.500v13"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10m6 10V4m6 16v-7m5 7H3"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.500A2.500 2.500 0 0 1 6.500 3H20v16H6.500A2.500 2.500 0 0 0 4 21.500v-16Zm0 16A2.500 2.500 0 0 1 6.500 19H20"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3m0 0L8 7m4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></symbol>
+      <symbol id="i-directions" viewBox="0 0 24 24"><path d="M12 22 4.500 14.500a2.100 2.100 0 0 1 0-3L12 4l7.500 7.500a2.100 2.100 0 0 1 0 3L12 22Zm-1.500-9.500 2-2 2 2m-2-2V16"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.100 7-11a7 7 0 1 0-14 0c0 4.900 7 11 7 11Zm0-8.500a2.500 2.500 0 1 0 0-5 2.500 2.500 0 0 0 0 5Z"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.300 3.900 1.800 18a2 2 0 0 0 1.700 3h17a2 2 0 0 0 1.700-3L13.700 3.900a2 2 0 0 0-3.400 0Z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.500 4.500 4.500L19 7.500"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><path d="M12 11v5m0-8.500h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.500-2.500h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Zm8 9a3.500 3.500 0 1 0 0-7 3.500 3.500 0 0 0 0 7Z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24"><path d="M12 2v3m0 14v3M2 12h3m14 0h3m-10 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0Zm-4 0a7 7 0 1 0 14 0 7 7 0 0 0-14 0Z"/></symbol>
+      <symbol id="i-shirt" viewBox="0 0 24 24"><path d="m8 3-5 3 2.500 4L8 9v11h8V9l2.500 1L21 6l-5-3a4 4 0 0 1-8 0Z"/></symbol>
+      <symbol id="i-spray" viewBox="0 0 24 24"><path d="M9 8h6v13H9V8Zm1-5h3v3h-3V3Zm5 1.500h.01M18 3.500h.01M18 7h.01M9 13h6"/></symbol>
+      <symbol id="i-path" viewBox="0 0 24 24"><path d="M5 21c0-6 14-6 14-12S9 6 9 3m-4 18h14"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.300-4.300M10.500 18a7.500 7.500 0 1 1 0-15 7.500 7.500 0 0 1 0 15Z"/></symbol>
+      <symbol id="i-paw" viewBox="0 0 24 24"><path d="M12 12c-3 0-5 3-5 5.500C7 19.500 8.500 21 12 21s5-1.500 5-3.500C17 15 15 12 12 12ZM6.500 8.500a1.800 2.300 0 1 0 0-.1m11 .1a1.800 2.300 0 1 0 0-.1M10 5a1.700 2.200 0 1 0 0-.1m4 .1a1.700 2.200 0 1 0 0-.1"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 3v4m8-4v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+    </defs>
+  </svg>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/vendor/chart.umd.js"></script>
+  <script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS sightings (
     region        TEXT NOT NULL,
     content_hash  TEXT NOT NULL,
     quality_flags TEXT NOT NULL DEFAULT '',
+    source        TEXT NOT NULL DEFAULT 'api',
+    notes         TEXT,
+    image_path    TEXT,
     first_seen_at TEXT NOT NULL,
     updated_at    TEXT NOT NULL
 );
@@ -84,7 +87,9 @@ class Database:
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.path, timeout=30)
+        # check_same_thread=False: FastAPI may set up / use / tear down a request's connection on
+        # different worker threads. Each connection is still used by one request at a time.
+        conn = sqlite3.connect(self.path, timeout=30, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         try:
@@ -99,6 +104,12 @@ class Database:
     def init(self) -> None:
         with self.connect() as c:
             c.executescript(SCHEMA)
+            # Lightweight migration so databases created by earlier versions keep working.
+            have = {r["name"] for r in c.execute("PRAGMA table_info(sightings)")}
+            for col, ddl in (("source", "TEXT NOT NULL DEFAULT 'api'"), ("notes", "TEXT"), ("image_path", "TEXT")):
+                if col not in have:
+                    c.execute(f"ALTER TABLE sightings ADD COLUMN {col} {ddl}")
+            c.execute("CREATE INDEX IF NOT EXISTS ix_s_source ON sightings(source)")
 
 
 # ---------- writes ----------
@@ -203,3 +214,13 @@ def search_sightings(conn, where: str, args: list[Any], sort: str, limit: int, o
         [*args, limit, offset],
     ).fetchall()
     return total, rows
+
+
+def insert_user_report(conn: sqlite3.Connection, row: dict[str, Any], notes: str | None, image_path: str | None) -> None:
+    now = utcnow()
+    cols = _COLS
+    conn.execute(
+        f"""INSERT INTO sightings ({",".join(cols)}, source, notes, image_path, first_seen_at, updated_at)
+            VALUES ({",".join(":" + c for c in cols)}, 'user', :notes, :image_path, :now, :now)""",
+        {**row, "notes": notes, "image_path": image_path, "now": now},
+    )

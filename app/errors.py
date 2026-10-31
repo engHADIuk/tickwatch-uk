@@ -10,12 +10,13 @@ log = logging.getLogger("tick.errors")
 
 
 class AppError(Exception):
-    def __init__(self, status: int, code: str, message: str, details=None):
+    def __init__(self, status: int, code: str, message: str, details=None, headers: dict | None = None):
         super().__init__(message)
         self.status, self.code, self.message, self.details = status, code, message, details
+        self.headers = headers or {}
 
 
-def _envelope(request: Request, status: int, code: str, message: str, details=None) -> JSONResponse:
+def _envelope(request: Request, status: int, code: str, message: str, details=None, headers=None) -> JSONResponse:
     body = {
         "error": {
             "code": code,
@@ -24,13 +25,13 @@ def _envelope(request: Request, status: int, code: str, message: str, details=No
             "request_id": getattr(request.state, "request_id", None),
         }
     }
-    return JSONResponse(status_code=status, content=body)
+    return JSONResponse(status_code=status, content=body, headers=headers)
 
 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
-        return _envelope(request, exc.status, exc.code, exc.message, exc.details)
+        return _envelope(request, exc.status, exc.code, exc.message, exc.details, exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError):

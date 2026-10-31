@@ -9,3 +9,5 @@ data/snapshot.json
 sightings.json
 headers.txt
 .DS_Store
+data/uploads/
+.pytest_cache/

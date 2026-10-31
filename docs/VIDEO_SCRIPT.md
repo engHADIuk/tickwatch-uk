@@ -1,17 +1,21 @@
-# 10-minute walkthrough script (aim for ~8 minutes)
+# Video script (target 8-9 minutes, hard limit 10)
 
-**0:00 - Intro (30s)** "I'm Muhammad Hadi. This is a backend MVP for a UK tick tracker. The focus is how data is consumed, processed and presented."
+**0:00-0:30 Intro.** Say your full name. "TickWatch UK: a full-stack tick tracker. A FastAPI backend cleans and serves the data; a web app lets people explore, learn and report."
 
-**0:30 - The data (1m)** Show `https://dev-task.elancoapps.com/` and one record. Point out: flat list, no coordinates, city only, ~1000 rows.
+**0:30-1:30 Home page.** Scroll the home page: live numbers, the sightings network (hover, click a city), "Check your area" (change city and activity), this month's outlook. Click the three colour swatches to show Forest, Midnight and Heather, and say the theme is remembered.
 
-**1:30 - Architecture (1m 30s)** Show the mermaid diagram in the README. Explain: ingest into SQLite instead of proxying; why (speed, resilience, no hammering the source).
+**1:30-2:00 The problem and the data.** Show the Elanco docs page and one raw record. Flat list, about 1000 rows, city names only, no coordinates. This shapes the map (city level) and the design.
 
-**3:00 - Data quality (2m)** Run `python scripts/profile_data.py sightings.json`. Then in Swagger: `POST /sync`, `GET /data-quality`, `GET /quarantine`. Explain the policy: reject vs keep+flag vs infer; three kinds of duplicates; `/sync` twice = 0 inserted (idempotent).
+**2:00-3:00 The map.** Show the bubbles: size = sightings, colour = relative activity, rings as a non-colour cue. Use the date chips, species and region filters. Switch to List view and say why (accessibility). Click Nottingham.
 
-**5:00 - Resilience (1m 30s)** Terminal 1: `FAIL_RATE=0.6 uvicorn scripts.mock_upstream:app --port 9000`. Terminal 2: `TICK_API_BASE_URL=http://127.0.0.1:9000/data uvicorn app.main:app`. Show retry logs. Then kill the mock and call `POST /sync` -> `degraded`, still serving from snapshot. Show the 422 and 404 error envelopes.
+**3:00-4:15 Sighting details.** Walk the panel: KPIs, the recent-activity score and its explanation, yearly/monthly timeline toggle, species bars, seasonal pattern, latest sightings. Click Share (link copied), then Get directions (new tab, close it).
 
-**6:30 - Search + reports (1m)** `/sightings` with date range + city; `/reports/regions`; `/reports/trends?interval=week`.
+**4:15-5:30 Report a sighting.** Submit empty: show the summary and inline errors. Pick an old date: show the amber warning. Try a text file as a photo: show the rejection. Then submit properly with a photo: success card, "See Leeds on the map", show the Community report badge and the photo.
 
-**7:30 - Extension (1m)** `/insights/risk` - walk through one city's components and explanation; `/insights/anomalies`. Say why it is explainable rather than a black box.
+**5:30-6:15 Insights and Learn.** (Mention the CSV download and the tick-check checklist.) Insights: regions, trend toggle, seasonality, ranking with explanations. Learn: species guide, seasonal chart for London, prevention and removal steps.
 
-**8:30 - Tests + next steps (1m)** `pytest -q`. Mention Postgres/PostGIS, scheduled sync, write path, calibrating the risk score.
+**6:15-7:45 Behind the scenes.** Terminal 1: `FAIL_RATE=0.6 uvicorn scripts.mock_upstream:app --port 9000`. Terminal 2: start the app against it and show retry logs. In /docs: GET /data-quality and /quarantine (nine reasons), POST /sync twice (0 inserted). Stop the fake API, POST /sync: degraded, snapshot, and the header pill says Offline mode.
+
+**7:45-8:30 Quality.** `pytest -q` (42 passed). Mention the bug the browser test found (a thread-safety issue) and the regression test. README architecture diagram.
+
+**8:30-9:00 Close.** Limitations (city-level, unmoderated reports, SQLite) and next steps (PostGIS, auth and moderation, calibrated model). Restate your name. Stop.

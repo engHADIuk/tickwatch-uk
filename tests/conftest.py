@@ -39,7 +39,8 @@ def make_client(upstream: FakeUpstream, retries=3) -> TickApiClient:
 
 @pytest.fixture
 def settings(tmp_path):
-    return Settings(db_path=str(tmp_path / "t.db"), snapshot_path=str(tmp_path / "snap.json"), max_retries=3)
+    return Settings(db_path=str(tmp_path / "t.db"), snapshot_path=str(tmp_path / "snap.json"), uploads_dir=str(tmp_path / "up"),
+                    max_retries=3, max_upload_mb=1, reports_per_minute=50)
 
 
 @pytest.fixture
